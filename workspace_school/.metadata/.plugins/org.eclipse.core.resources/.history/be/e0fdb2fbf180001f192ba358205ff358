@@ -1,0 +1,108 @@
+#include "main.h"
+#include <stdio.h>  // For using printf
+
+void SystemClock_Config(void);
+
+void keypad_test_init(void) {
+  // Configure PA4-PA7 as outputs (columns)
+  GPIOA->MODER &= ~(GPIO_MODER_MODE4 | GPIO_MODER_MODE5 | GPIO_MODER_MODE6 | GPIO_MODER_MODE7);
+  GPIOA->MODER |= (GPIO_MODER_MODE4_0 | GPIO_MODER_MODE5_0 | GPIO_MODER_MODE6_0 | GPIO_MODER_MODE7_0);
+
+  // Set PA4-PA7 high initially (driving all columns high)
+  GPIOA->ODR |= (GPIO_ODR_OD4 | GPIO_ODR_OD5 | GPIO_ODR_OD6 | GPIO_ODR_OD7);
+
+  // Configure PA0-PA3 as inputs (rows)
+  GPIOA->MODER &= ~(GPIO_MODER_MODE0 | GPIO_MODER_MODE1 | GPIO_MODER_MODE2 | GPIO_MODER_MODE3);
+
+  // Enable pull-down resistors on PA0-PA3 (so they are low if no button is pressed)
+  GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPD0 | GPIO_PUPDR_PUPD1 | GPIO_PUPDR_PUPD2 | GPIO_PUPDR_PUPD3);
+  GPIOA->PUPDR |= (GPIO_PUPDR_PUPD0_1 | GPIO_PUPDR_PUPD1_1 | GPIO_PUPDR_PUPD2_1 | GPIO_PUPDR_PUPD3_1);
+
+  // Configure LED on GPIOC (e.g., PC0)
+  GPIOC->MODER &= ~(GPIO_MODER_MODE0);
+  GPIOC->MODER |= (GPIO_MODER_MODE0_0); // PC0 as output
+}
+
+int main(void)
+{
+  // Initialize system and clocks
+  SystemClock_Config();
+
+  // Enable GPIOA and GPIOC clocks
+  RCC -> AHB2ENR |= (RCC_AHB2ENR_GPIOAEN);
+  RCC -> AHB2ENR |= (RCC_AHB2ENR_GPIOCEN);
+
+  // Initialize the keypad test
+  keypad_test_init();
+
+  while (1)
+  {
+    // Check if any of PA0-PA3 (row pins) are high, meaning a key is pressed
+    if (GPIOA->IDR & (GPIO_IDR_ID0 | GPIO_IDR_ID1 | GPIO_IDR_ID2 | GPIO_IDR_ID3)) {
+      // Turn on LED on PC0 if any key is pressed
+      GPIOC->ODR |= GPIO_ODR_OD0;
+
+      // For debugging, print a message (optional, depending on your setup)
+      printf("Key pressed!\n");
+    } else {
+      // Turn off LED if no key is pressed
+      GPIOC->ODR &= ~GPIO_ODR_OD0;
+    }
+  }
+}
+
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+  RCC_OscInitStruct.MSICalibrationValue = 0;
+  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+void Error_Handler(void)
+{
+  __disable_irq();
+  while (1)
+  {
+  }
+}
+
+#ifdef  USE_FULL_ASSERT
+
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  printf("Assertion failed: file %s on line %d\n", file, line);  // Debug assertion failures
+}
+#endif

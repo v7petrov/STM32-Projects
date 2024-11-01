@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Delete resource &apos;functiongenerator/Core/Inc/DAC&apos;" deleteContents="false" description="Delete resource &apos;functiongenerator/Core/Inc/DAC&apos;" element1="/functiongenerator/Core/Inc/DAC" flags="7" id="org.eclipse.ltk.core.refactoring.delete.resources" resources="1" stamp="1729984338282"/>
+</session>

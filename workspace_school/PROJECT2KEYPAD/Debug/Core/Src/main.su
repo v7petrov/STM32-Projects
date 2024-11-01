@@ -1,0 +1,6 @@
+../Core/Src/main.c:20:6:keypad_init	4	static
+../Core/Src/main.c:44:10:getKeypadResult	16	static
+../Core/Src/main.c:55:10:getKeypadNumber	24	static
+../Core/Src/main.c:84:5:main	16	static
+../Core/Src/main.c:120:6:SystemClock_Config	96	static
+../Core/Src/main.c:160:6:Error_Handler	4	static,ignoring_inline_asm

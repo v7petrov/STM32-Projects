@@ -1,0 +1,103 @@
+#include "main.h"
+#define ARR_VAL 800       // Period for 5 kHz wave (800 ticks)
+#define CCR1_VAL 200      // 25% duty cycle (200 ticks)
+
+void SystemClock_Config(void);
+
+int main(void)
+{
+    // Initialize HAL and system clock
+    HAL_Init();
+    SystemClock_Config();
+
+    // Enable TIM2 and GPIOC clock
+    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN;
+    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOCEN;
+
+    // Set ARR to 800 (for 5 kHz)
+    TIM2->ARR = ARR_VAL - 1;
+
+    // Set CCR1 to 200 for 25% duty cycle
+    TIM2->CCR1 = CCR1_VAL - 1;
+
+    // Enable update interrupt
+    TIM2->DIER |= TIM_DIER_UIE;
+
+    //more stuff on flags
+    TIM2 -> SR &= ~(TIM_SR_UIF);
+
+    // Enable timer
+    TIM2->CR1 |= TIM_CR1_CEN;
+
+    // Enable TIM2 interrupt in NVIC
+    NVIC->ISER[0] = (1 << TIM2_IRQn);
+
+    // Enable global interrupts
+    __enable_irq();
+
+    // Configure PC0 as output
+    GPIOC->MODER &= ~(GPIO_MODER_MODE0); // Clear bits for PC0
+    GPIOC->MODER |= (GPIO_MODER_MODE0_0); // Set PC0 as output
+
+    // Infinite loop, ISR will handle timing
+    while (1)
+    {
+    }
+}
+
+void TIM2_IRQHandler(void)
+{
+    // Check for update interrupt flag
+    if (TIM2->SR & TIM_SR_UIF)
+    {
+        // Toggle PC0 to generate square wave
+        GPIOC->ODR ^= GPIO_ODR_OD0;
+
+        // Clear update interrupt flag
+        TIM2->SR &= ~TIM_SR_UIF;
+    }
+}
+
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    // Configure the main internal regulator output voltage
+    if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    // Initialize the RCC Oscillators
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+    RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+    RCC_OscInitStruct.MSICalibrationValue = 0;
+    RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    // Initialize CPU, AHB, and APB buses clocks
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+void Error_Handler(void)
+{
+    // Infinite loop in case of error
+    __disable_irq();
+    while (1)
+    {
+    }
+}

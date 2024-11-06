@@ -1,0 +1,14 @@
+/*
+ * UART.h
+ *
+ *  Created on: Nov 1, 2024
+ *      Author: USER
+ */
+
+#ifndef INC_USART_H_
+#define INC_USART_H_
+
+void UART_init(void);
+void USART_print(char* string);
+
+#endif /* INC_USART_H_ */

@@ -1,0 +1,234 @@
+#include "main.h"
+
+void SystemClock_Config(void);
+
+uint8_t flag = 0;
+uint16_t ADC_val = 0;
+uint16_t samples[sample_size];
+uint8_t sample_index = 0;
+
+int main(void)
+{
+
+  HAL_Init();
+
+  SystemClock_Config();
+
+  ADC_init();
+
+  while (1)
+  {
+	  if(sample_index == sample_size - 1){
+		  PrintMinMaxAvg();
+	  }
+
+	  if(flag){								// If flag, write a value into the array
+
+		  samples[sample_index] = ADC_val;
+		  sample_index++;
+		  if(sample_index == sample_size){
+
+			  sample_index = 0;				// Clear flag
+		  }
+		  flag = 0;
+		  ADC1->CR |= (ADC_CR_ADSTART);		// Start a conversion
+	  }
+
+
+  }
+
+}
+
+uint32_t digital_volt_conv(uint32_t digitval){
+	return digitval/MAX_DIGITAL * MAX_VOLT;
+}
+
+void PrintMinMaxAvg(void){
+	uint32_t min = MAX_DIGITAL;
+	uint32_t max = 0;
+	uint32_t sum = 0;
+	uint32_t avg;
+	for(uint8_t i = 0; i < sample_size; i++){
+		if(samples[sample_index] < min){
+			min = samples[sample_index];
+		}
+
+		if(samples[sample_index] > max){
+			max = samples[sample_index];
+		}
+
+		sum += samples[sample_index];
+	}
+
+	avg = sum/sample_size;
+
+	min = digital_volt_conv(min);
+	max = digital_volt_conv(max);
+	avg = digital_volt_conv(avg);
+
+	USART_ESC(CLR_KEY);		// reset screen and cursor
+	USART_print("Minimum: ");
+	USART_print(DigitToStr(min));
+	USART_print("Maximum: ");
+	USART_print(DigitToStr(max));
+	USART_print("Average: ");
+	USART_print(DigitToStr(avg));
+
+
+}
+
+char* DigitToStr(uint8_t digit){
+
+	static char result[5];
+
+	result[0] = (digit / 1000) + '0';
+	result[1] = ((digit / 100) % 10) + '0'; // Hundreds place
+	result[2] = ((digit / 10) % 10) + '0';  // Tens place
+	result[3] = (digit % 10) + '0';         // Units place
+	result[4] = '\0';                       // Null terminator
+
+	return result;
+
+}
+
+void ADC1_2_IRQHandler(void){
+	if(ADC1->ISR & ADC_ISR_EOC){
+		ADC_val = ADC1->DR; // get conversion from ADC data register
+		flag = 1; 	    // Set global flag
+	}
+
+	ADC1->ISR &= ~ADC_ISR_EOC;	// clear flag
+}
+
+void ADC_init(void){
+	// Enable Clocks
+	RCC->AHB2ENR |= RCC_AHB2ENR_ADCEN;
+	// set ADC clock t0 HCLK/1 sync
+	ADC123_COMMON->CCR = (1 << ADC_CCR_CKMODE_Pos);
+
+	// Power up ADC / Voltage regulator
+	ADC1->CR &= ~(ADC_CR_DEEPPWD);
+	ADC1->CR |= (ADC_CR_ADVREGEN);
+
+	// wait for 20 us - change this t something better
+	for(uint32_t i = 0; i < 50000; i++);
+
+	// Configure DifSel
+	// Single ended mode for channel 5 (PA0)
+	ADC1->DIFSEL &= ~(ADC_DIFSEL_DIFSEL_5);
+
+	// Calibrate the ADC
+	// Ensure ADC is disabled and single-ended mode
+	ADC1->CR &= ~(ADC_CR_ADEN | ADC_CR_ADCALDIF);
+	ADC1->CR |= ADC_CR_ADCAL;			// Start calibration
+	while (ADC1->CR & ADC_CR_ADCAL); 	// Wait for calibration to finish
+
+	// Enable ADC
+	// clear ready bit with a 1
+	ADC1->ISR |= (ADC_ISR_ADRDY);
+	ADC1->CR |= (ADC_CR_ADEN);
+	// wait for ADRDY to be 1
+	while (!(ADC1->ISR & ADC_ISR_ADRDY));
+
+	// set sequence 1 for 1 conversion on channel 5
+	ADC1->SQR1 = (CHANNEL5 << ADC_SQR1_SQ1_Pos);
+	ADC1->CFGR = 0;
+
+	// Use sample and hold timer with a sample time of 2.5 clocks
+//	ADC1->SMPR1 = (7 << ADC_SMPR1_SMP5_Pos);
+	ADC1->SMPR1 = ~(ADC_SMPR1_SMP5);
+	// enable interrupts on end of conversion
+	ADC1->IER |= (ADC_IER_EOC);
+	ADC1->ISR |= (ADC_ISR_EOC);
+
+	// Configure GPIO for channel 5
+	RCC->AHB2ENR    |= RCC_AHB2ENR_GPIOAEN;
+	GPIOA->ASCR    |= (GPIO_ASCR_ASC0); //connect analog switch to ADC inp
+	GPIOA->MODER   &= ~(GPIO_MODER_MODE0);
+	GPIOA->MODER   |= (GPIO_MODER_MODE0); 	// Analog mode
+	GPIOA->OSPEEDR |= (GPIO_OSPEEDR_OSPEED0);	// max speed
+
+	// Enable interrupt in the NVIC
+	NVIC->ISER[0] = (1 << (ADC1_2_IRQn & 0x1F));
+	__enable_irq();
+
+	// Start a conversion
+	ADC1->CR |= (ADC_CR_ADSTART);
+
+}
+
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+  RCC_OscInitStruct.MSICalibrationValue = 0;
+  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_9;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */

@@ -41,6 +41,7 @@ int main(void)
 		  	  if(curr_state == SQR){
 		  		  curr_PWM = 4;
 		  	  }
+		  	  break;
 
 		  case (1):
 		  	  // 100 Hz frequency

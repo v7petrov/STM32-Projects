@@ -1,24 +1,3 @@
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.h
-  * @brief          : Header for main.c file.
-  *                   This file contains the common defines of the application.
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2024 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-
-/* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef __MAIN_H
 #define __MAIN_H
 
@@ -28,39 +7,32 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
+#include "USART.h"
+#define sample_size 20	// sampling 20 times
+#define MAX_VOLT 3300	// Max voltage in mV
+#define MAX_DIGITAL 4095// Max voltage in 12 bit resolution
+#define CHANNEL5 5		// Channel5 register setting
+#define CONV_SLOPE 808	// These two values are calculated
+#define CONV_OFFSET 699	// by using	linear approximation
+#define INIT_DELAY 50000// 20 us delay for ADC init
+#define LONG_DELAY 200000 // Long enough for us to see the USART terminal
+#define OFF 0
+#define STRING_length 6		// Volts w/ 3 decimals in includng null term + dec. point
+#define THOUSANDS 1000		// Thousandths
+#define HUNDREDS 100		// Hundreths
+#define TENS 10				// Tenths
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
+//#define digital_conv(digitval) ((digitval * (MAX_VOLT))/MAX_DIGITAL) (calibration eq)
+#define digital_conv(digitval) (digitval * CONV_SLOPE - CONV_OFFSET)
+#define modulo_ten(digit) (digit % 10)	// To get that digit of the number
 
-/* USER CODE END Includes */
-
-/* Exported types ------------------------------------------------------------*/
-/* USER CODE BEGIN ET */
-
-/* USER CODE END ET */
-
-/* Exported constants --------------------------------------------------------*/
-/* USER CODE BEGIN EC */
-
-/* USER CODE END EC */
-
-/* Exported macro ------------------------------------------------------------*/
-/* USER CODE BEGIN EM */
-
-/* USER CODE END EM */
-
-/* Exported functions prototypes ---------------------------------------------*/
+void PrintMinMaxAvg(void);
+void ADC1_2_IRQHandler(void);
+char* DigitToStr(uint32_t digit);
+void ADC_init(void);
 void Error_Handler(void);
-
-/* USER CODE BEGIN EFP */
-
-/* USER CODE END EFP */
-
-/* Private defines -----------------------------------------------------------*/
-
-/* USER CODE BEGIN Private defines */
-
-/* USER CODE END Private defines */
+void ADC_delay(void);
+void USART_delay(void);
 
 #ifdef __cplusplus
 }

@@ -1,0 +1,30 @@
+#ifndef __MAIN_H
+#define __MAIN_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Includes ------------------------------------------------------------------*/
+#include "stm32l4xx_hal.h"
+#include "USART.h"
+#define sample_size 20
+#define MAX_VOLT 3300
+#define MAX_DIGITAL 4095
+#define CHANNEL5 5
+
+//#define digital_conv(digitval) ((digitval * (MAX_VOLT))/MAX_DIGITAL)
+#define digital_conv(digitval) (digitval*1237000 - 857)
+
+void PrintMinMaxAvg(void);
+void ADC1_2_IRQHandler(void);
+char* DigitToStr(uint32_t digit);
+void ADC_init(void);
+void Error_Handler(void);
+uint32_t digital_volt_conv(uint32_t digitval);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __MAIN_H */

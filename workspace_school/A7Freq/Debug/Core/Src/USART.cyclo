@@ -1,0 +1,4 @@
+../Core/Src/USART.c:10:6:UART_init	1
+../Core/Src/USART.c:40:6:USART_print	3
+../Core/Src/USART.c:54:6:USART_ESC	4
+../Core/Src/USART.c:72:7:DigitToStr	1

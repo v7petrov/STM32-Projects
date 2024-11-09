@@ -1,29 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <section name="Workbench">
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
-		<item key="selection" value="ADC_CC"/>
+		<item key="selection" value="GPIO_AFRH"/>
 		<item key="wrap" value="true"/>
 		<item key="casesensitive" value="true"/>
 		<item key="wholeword" value="false"/>
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
+			<item value="GPIO_AFRH"/>
+			<item value="GPIO_AF"/>
+			<item value="GPIOB_"/>
+			<item value="GPIOB_AF"/>
+			<item value="GPIOB_AFHR"/>
+			<item value="GPIOB_AFR"/>
+			<item value="GPIOB_AFRH"/>
+			<item value="GPIOB"/>
+			<item value="GPIOAEN"/>
+			<item value="RCC"/>
 			<item value="ADC_CC"/>
 			<item value="ADC_C"/>
 			<item value="ADC"/>
 			<item value="SQR"/>
 			<item value="RCC_PLLP_DIV2"/>
-			<item value="GPIOC"/>
-			<item value="NCS"/>
-			<item value="SPI_CR1_"/>
-			<item value="SPI_CR1_N"/>
-			<item value="SPI_CR1"/>
 		</list>
 		<list key="replacehistory">
 		</list>
 	</section>
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">
-		<item key="DIALOG_X_ORIGIN" value="1541"/>
+		<item key="DIALOG_X_ORIGIN" value="1515"/>
 		<item key="DIALOG_Y_ORIGIN" value="220"/>
 		<item key="DIALOG_WIDTH" value="414"/>
 		<item key="DIALOG_HEIGHT" value="454"/>

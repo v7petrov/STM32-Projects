@@ -1,0 +1,159 @@
+#include "main.h"
+
+volatile uint32_t pulse_duration = 0; // Global variable to store pulse duration
+volatile uint8_t measurement_complete = 0; // Flag to indicate when frequency measurement is complete
+
+void SystemClock_Config(void);
+
+int main(void)
+{
+    HAL_Init();
+    UART_init();
+    Comp_init();
+    TIM2_OPM_init();
+
+    SystemClock_Config();
+
+    while (1)
+    {
+        if (measurement_complete)
+        {
+            // Calculate the frequency using the pulse_duration
+            uint32_t frequency = CLKFREQ / pulse_duration; // Assuming 24 MHz clock frequency
+
+            USART_ESC(CLR_KEY);               // Clear the USART display
+            USART_print(DigitToStr(frequency)); // Print the frequency
+
+            for(int i = 0; i < 100000; i++);
+
+            measurement_complete = 0; // Reset the flag to allow new measurement
+        }
+    }
+}
+
+// TIM2 interrupt handler
+void TIM2_IRQHandler(void)
+{
+    if (TIM2->SR & TIM_SR_UIF) // Check if update interrupt flag is set
+    {
+        TIM2->SR &= ~TIM_SR_UIF;    // Clear update interrupt flag
+
+        if (!measurement_complete)  // Only update if the previous measurement is complete
+        {
+            pulse_duration = TIM2->CNT; // Store pulse width in global variable
+            TIM2->CNT = 0;              // Reset the timer count for the next pulse
+
+            measurement_complete = 1;   // Set flag to indicate measurement is complete
+        }
+    }
+}
+
+void TIM2_OPM_init(void)
+{
+    // Enable clock for TIM2
+    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN;
+    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN; // Enable clock for GPIOB
+
+    // Configure TIM2 prescaler and ARR for maximum timing range
+    TIM2->PSC = 7999;            // Prescaler for TIM2 (adjust as needed for timing resolution)
+    TIM2->ARR = 0xFFFF;          // Auto-reload register to capture pulse duration
+
+    // Set One-Pulse Mode (OPM)
+    TIM2->CR1 |= TIM_CR1_OPM;    // Enable one-pulse mode
+
+    // Configure TIM2 to trigger on COMP2's output
+    TIM2->SMCR |= TIM_SMCR_TS_2 | TIM_SMCR_TS_0;  // Trigger from external source COMP2 output
+    TIM2->SMCR |= TIM_SMCR_SMS_2;                 // Set to trigger mode
+
+    // Enable interrupt on update event (to capture end of pulse)
+    TIM2->DIER |= TIM_DIER_UIE;
+    NVIC->ISER[0] = (1 << TIM2_IRQn);            // Enable TIM2 interrupt in NVIC
+
+    __enable_irq();			// Enable global interrupts
+}
+
+void Comp_init(void)
+{
+    // Unlock CSR register writing
+    COMP2->CSR &= ~COMP_CSR_LOCK;
+
+    // Set reference and blanking options
+    COMP2->CSR &= ~COMP_CSR_SCALEN;
+    COMP2->CSR &= ~COMP_CSR_BLANKING;
+
+    // Set hysteresis level
+    COMP2->CSR &= ~COMP_CSR_HYST;
+    COMP2->CSR |= COMP_CSR_HYST_0; // Low hysteresis
+
+    // Set comparator polarity and input
+    COMP2->CSR &= ~COMP_CSR_POLARITY;
+    COMP2->CSR &= ~COMP_CSR_WINMODE;
+    COMP2->CSR |= COMP_CSR_INPSEL;             // In+ is PB6
+    COMP2->CSR &= ~COMP_CSR_INMSEL;
+    COMP2->CSR |= COMP_CSR_INMSEL_0;           // Compare against 1/2 Vrefint
+
+    // Set power mode to fastest
+    COMP2->CSR &= ~COMP_CSR_PWRMODE;
+
+    // Enable COMP2 and lock the CSR register
+    COMP2->CSR |= COMP_CSR_EN;
+    COMP2->CSR |= COMP_CSR_LOCK;
+}
+
+char* DigitToStr(uint32_t digit)
+{
+    static char result[6]; // Adjust size as needed
+
+    // Scale down to get a 3.3V equivalent
+    digit = digit / 1000;
+
+    // Convert each digit to a character and place in result string
+    result[0] = (digit / 1000) + '0';            // Thousands
+    result[1] = '.';                              // Decimal point
+    result[2] = ((digit / 100) % 10) + '0';       // Hundreds place
+    result[3] = ((digit / 10) % 10) + '0';        // Tens place
+    result[4] = (digit % 10) + '0';               // Units place
+    result[5] = '\0';                             // Null terminator
+
+    return result;
+}
+
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+    RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+    RCC_OscInitStruct.MSICalibrationValue = 0;
+    RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_9;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+void Error_Handler(void)
+{
+    __disable_irq();
+    while (1)
+    {
+    }
+}

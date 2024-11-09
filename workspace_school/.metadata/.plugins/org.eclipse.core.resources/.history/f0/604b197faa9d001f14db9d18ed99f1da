@@ -1,0 +1,129 @@
+#include "main.h"
+
+uint32_t pulse_duration = 0; // Global variable to store pulse duration
+uint8_t measurement_complete = 0; // Flag to indicate when frequency measurement is complete
+
+void SystemClock_Config(void);
+
+int main(void)
+{
+    HAL_Init();
+    UART_init();
+    Comp_init();
+    CompOut_init();
+
+    SystemClock_Config();
+
+    while (1)
+    {
+
+    }
+}
+
+void CompOut_init(void){
+	// Enable GPIOB clock
+	RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
+
+	// PB5 on alternate mode, AF12 for COMP2_OUT
+	GPIOB->MODER &= ~GPIO_MODER_MODE5;
+	GPIOB->MODER |= GPIO_MODER_MODE5_1;
+
+	GPIOB->AFR &= ~GPIO_AFRL_AFSEL5;
+	GPIOB->AFR |= (GPIO_AFRL_AFSEL5_2 | GPIO_AFRL_AFSEL5_3);
+
+	// PB6 is for analog mode for COMP2_in+
+	GPIOB->MODER |= GPIO_MODER_MODE6;
+
+	//Other setup stuff
+	GPIOB->OTYPER &= ~(GPIO_OTYPER_OT5 | GPIO_OTYPER_OT6);	// push pull
+	GPIOB->OSPEEDR |= (GPIO_OSPEEDR_OSPEED5 | GPIO_OSPEEDR_OSPEED6); // fastest speed
+	GPIOB->PUPDR &= ~(GPIO_PUPDR_PUPD5 | GPIO_PUPDR_PUPD6);	// no pu/pd
+
+}
+
+void Comp_init(void)
+{
+    // Unlock CSR register writing
+    COMP2->CSR &= ~COMP_CSR_LOCK;
+
+    // Set reference and blanking options
+    COMP2->CSR &= ~COMP_CSR_SCALEN;
+    COMP2->CSR &= ~COMP_CSR_BLANKING;
+
+    // Set hysteresis level
+    COMP2->CSR &= ~COMP_CSR_HYST;
+    COMP2->CSR |= COMP_CSR_HYST_0; // Low hysteresis
+
+    // Set comparator polarity and input
+    COMP2->CSR &= ~COMP_CSR_POLARITY;
+    COMP2->CSR &= ~COMP_CSR_WINMODE;
+    COMP2->CSR |= COMP_CSR_INPSEL;             // In+ is PB6
+    COMP2->CSR &= ~COMP_CSR_INMSEL;
+    COMP2->CSR |= COMP_CSR_INMSEL_0;           // Compare against 1/2 Vrefint
+
+    // Set power mode to fastest
+    COMP2->CSR &= ~COMP_CSR_PWRMODE;
+
+    // Enable COMP2 and lock the CSR register
+    COMP2->CSR |= COMP_CSR_EN;
+    COMP2->CSR |= COMP_CSR_LOCK;
+
+}
+
+char* DigitToStr(uint32_t digit)
+{
+    static char result[6]; // Adjust size as needed
+
+    // Scale down to get a 3.3V equivalent
+    digit = digit / 1000;
+
+    // Convert each digit to a character and place in result string
+    result[0] = (digit / 1000) + '0';            // Thousands
+    result[1] = '.';                              // Decimal point
+    result[2] = ((digit / 100) % 10) + '0';       // Hundreds place
+    result[3] = ((digit / 10) % 10) + '0';        // Tens place
+    result[4] = (digit % 10) + '0';               // Units place
+    result[5] = '\0';                             // Null terminator
+
+    return result;
+}
+
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+    RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+    RCC_OscInitStruct.MSICalibrationValue = 0;
+    RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_9;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+void Error_Handler(void)
+{
+    __disable_irq();
+    while (1)
+    {
+    }
+}

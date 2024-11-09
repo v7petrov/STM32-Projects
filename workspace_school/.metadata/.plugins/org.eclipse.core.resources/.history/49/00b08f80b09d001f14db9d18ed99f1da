@@ -1,0 +1,25 @@
+#ifndef __MAIN_H
+#define __MAIN_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "stm32l4xx_hal.h"
+#include "USART.h"
+
+#define COMP_INTERRUPT 0x1F
+#define ARR_VAL 0
+#define CLKFREQ 24000000
+
+void Comp_init(void);
+void TIM2_OPM_init(void);
+char* DigitToStr(uint32_t);
+void Error_Handler(void);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __MAIN_H */
